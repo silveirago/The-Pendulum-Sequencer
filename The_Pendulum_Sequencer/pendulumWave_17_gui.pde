@@ -56,9 +56,12 @@ float resistance = 1;
 boolean useMouse = false;
 int scaleNamesIndex = 1;
 int midiPort = 0;
+String[] outputs;
+boolean isOn = false;
 
 void setup() {
   size(800, 1080, P2D);
+  prepareExitHandler();
   surface.setResizable(true);
   //fullScreen(P2D, SPAN);
   colorMode(HSB, 255, 255, 255, 255);
@@ -110,17 +113,14 @@ void setup() {
 
   // MIDI
   // List all available Midi devices on STDOUT. This will show each device's index and name.
-  //MidiBus.list(); 
-  String[] outputs;
-
-
+  //MidiBus.list();   
   //myBus = new MidiBus(this, 0, 1); // Create a new MidiBus using the device index to select the Midi input and output devices respectively.
   //myBus = new MidiBus(this, -1, "IAC Bus 1");
   myBus = new MidiBus(this, -1, 1); // sets MIDI port
   //String busName = myBus.getBusName();
   myBus.setBusName("Pendulum Sequencer Bus");
-  //println(myBus.getBusName());
-  outputs = MidiBus.availableOutputs(); 
+  //println(myBus.getBusName());  
+  outputs = MidiBus.availableOutputs(); // stores the MIDI ports
 
   nTriggered = new ArrayList<ArrayList<Boolean>>(); // stores the if the note was triggered or not
   pNTriggered = new ArrayList<ArrayList<Boolean>>(); // stores the if the note was triggered or not
@@ -137,52 +137,7 @@ void setup() {
   }
 
   // GUI
-  //slider gravity
-  int w = 100;
-  int h = 15;
-  cp5 = new ControlP5(this);
-  cp5.addSlider("gravity")
-    .setPosition(10, 10)
-    .setSize(w, h)
-    .setRange(0, 1)  
-    .setValue(0.4)
-    ;
-  //slider resistance
-  cp5 = new ControlP5(this);
-  cp5.addSlider("resistance")
-    .setPosition(10, 30)
-    .setSize(w, h)
-    .setRange(0, 1)  
-    .setValue(0.01)    
-    ;
-  // list scales
-
-  /* add a ScrollableList, by default it behaves like a DropdownList */
-  //List output = Arrays.asList(
-  cp5.addScrollableList("MIDI out")
-    .setPosition(10, 75)
-    .setSize(w, 100)
-    .setBarHeight(20)
-    .setItemHeight(20)
-    .addItems(outputs)
-    //.setType(ScrollableList.DROPDOWN) // currently supported DROPDOWN and LIST
-    ;
-    cp5.get(ScrollableList.class, "MIDI out").close();
-    
-  List scalesN = Arrays.asList("chromatic", "ionian", "dorian", "phrygian", "lydian", "mixolydian", 
-    "aeolian", "locrian", "wholetone", "m7 9 11 13", "dim7", "octatonic 2-1", 
-    "octatonic 1-2", " major pentatonic", "minor pentatonic");
-  cp5.addScrollableList("scales")
-    .setPosition(10, 50)
-    .setSize(w, 100)
-    .setBarHeight(20)
-    .setItemHeight(20)
-    .addItems(scalesN)    
-    //.setType(ScrollableList.DROPDOWN) // currently supported DROPDOWN and LIST
-    ;
-  cp5.get(ScrollableList.class, "scales").close();
-
-  // list scales
+  GUIstuff(); // create GUI
 }
 
 void draw() {
@@ -196,7 +151,11 @@ void draw() {
 
   // do pendulum stuff
   for (int i=0; i<nPendulum; i++) {
-    p.get(i).go();  
+
+    if (isOn == true) {
+      p.get(i).update();
+      p.get(i).go();
+    }
     p.get(i).setGravity(gravity); // changes gravity
     p.get(i).setDamping(resistance); // changes reistance
     //println(gravity);
@@ -214,11 +173,11 @@ void draw() {
       PVector finalPos = strings.get(j).getFinalPos();               
       p.get(i).isOnLine(initialPos, finalPos); // checks if they are intersecting        
       isTriggered = p.get(i).getNoteTriggered();        
-
-      nTriggered.get(i).set(j, isTriggered);      
-
-      changeStringBrightness(j);   
-      p.get(i).setBrightness(isTriggered); // changes brightness when intersected
+      if (i < p.size() && j < strings.size()) {
+        nTriggered.get(i).set(j, isTriggered);
+        changeStringBrightness(j);   
+        p.get(i).setBrightness(isTriggered); // changes brightness when intersected
+      }
 
       // checks every pendulum with every string 
       //and sends a midi note if they are intersecting 
@@ -258,7 +217,7 @@ void connectCircles() {
 
 void mousePressed() {
 
-  if ((mouseX > 155) || (mouseY > 55)) {
+  if ((mouseX > 170) || (mouseY > 190)) {
     useMouse = true;
 
     //checks if you clicked in a circle
@@ -301,18 +260,23 @@ void mouseReleased() {
 }
 
 void keyPressed() {
+  int keyN = int(key - '0');
+
   if (key == 'z') {
     if (strings.size()>0) {
       strings.remove(strings.size()-1); // remove last string
     }
   }
-  if (key == '1') { // resets angle of the pendulums
+
+  if (key == '1' || key == '2' || key == '3' || key == '4' || key == '5') { // resets angle of the pendulums
     for (int i=0; i<p.size(); i++) {
       if (p.size()>0) {
-        p.get(i).setAngle(PI/6);
+        p.get(i).angle = PI/(8-(keyN+1));
+        p.get(i).aVelocity = 0;
       }
     }
   }
+
   if (key == 's') { // resets angle of the pendulums
     for (int i=0; i<p.size(); i++) {
       if (p.size()>0) {
@@ -356,8 +320,8 @@ void changePendulumBrightness(int i, int j) {
 }
 
 // GUI
+// changes the musical scale
 void scales(int n) {
-  //println(n);
   scaleNamesIndex = n;
 
   for (int i=0; i<nPendulum; i++) {
@@ -365,8 +329,105 @@ void scales(int n) {
     p.get(i).displayNote();
   }
 }
-
-void midiOut(int n) {
-  //println(n);
+// changes the MIDI port
+void MIDI_out(int n) {
   midiPort = n;
+  myBus.close();
+  myBus = new MidiBus(this, -1, midiPort); // sets MIDI port
+}
+// on/off
+void on_off(boolean theFlag) {
+  isOn = theFlag;
+  if (isOn == false) {
+    for (int ch=0; ch<16; ch++) {  // sets all midi notes off when app shuts down
+      for (int n=0; n<128; n++) {
+        myBus.sendNoteOn(ch, n, 0);
+      }
+    }
+  }
+  //for (int i=0; i<p.size(); i++) {
+  //  if (p.size()>0) {
+  //    p.get(i).angle = PI/6;
+  //    p.get(i).aVelocity = 0;
+  //  }
+  //}
+}
+
+// STOP
+// must add "prepareExitHandler();" in setup() for Processing sketches 
+private void prepareExitHandler () {
+  Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+    public void run () {
+      //System.out.println("SHUTDOWN HOOK");
+      myBus = new MidiBus(this, -1, 1); // sets MIDI port
+      for (int ch=0; ch<16; ch++) {  // sets all midi notes off when app shuts down
+        for (int n=0; n<128; n++) {
+          myBus.sendNoteOn(ch, n, 0);
+        }
+      }
+      try {
+        stop();
+      } 
+      catch (Exception ex) {
+        ex.printStackTrace(); // not much else to do at this point
+      }
+    }
+  }
+  ));
+}  
+
+void GUIstuff() {
+
+  // GUI
+  //slider gravity
+  int w = 100;
+  int h = 15;
+  cp5 = new ControlP5(this);
+  cp5.addSlider("gravity")
+    .setPosition(10, 10)
+    .setSize(w, h)
+    .setRange(0, 1)  
+    .setValue(0.4)
+    ;
+  //slider resistance
+  cp5 = new ControlP5(this);
+  cp5.addSlider("resistance")
+    .setPosition(10, 30)
+    .setSize(w, h)
+    .setRange(0, 1)  
+    .setValue(0.01)    
+    ;
+  cp5.addToggle("on_off")
+    .setPosition(10, 100)
+    .setSize(h, h)
+    .setValue(true)
+    .setState(false) 
+    //.setMode(ControlP5.SWITCH)
+    ;
+
+
+  /* add a ScrollableList, by default it behaves like a DropdownList */
+  //List output = Arrays.asList(
+  cp5.addScrollableList("MIDI_out")
+    .setPosition(10, 75)
+    .setSize(w, 100)
+    .setBarHeight(20)
+    .setItemHeight(20)
+    .addItems(outputs)
+    //.setType(ScrollableList.DROPDOWN) // currently supported DROPDOWN and LIST
+    ;
+  cp5.get(ScrollableList.class, "MIDI_out").close();
+
+  List scalesN = Arrays.asList("chromatic", "ionian", "dorian", "phrygian", "lydian", "mixolydian", 
+    "aeolian", "locrian", "wholetone", "m7 9 11 13", "dim7", "octatonic 2-1", 
+    "octatonic 1-2", " major pentatonic", "minor pentatonic");
+  cp5.addScrollableList("scales")
+    .setPosition(10, 50)
+    .setSize(w, 100)
+    .setBarHeight(20)
+    .setItemHeight(20)
+    .addItems(scalesN)    
+    //.setType(ScrollableList.DROPDOWN) // currently supported DROPDOWN and LIST
+    ;
+  cp5.get(ScrollableList.class, "scales").close();
 }

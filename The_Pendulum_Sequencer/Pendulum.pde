@@ -83,7 +83,7 @@ class Pendulum {
   }
 
   void go() {
-    update();
+    
     drag();    //for user interaction
     if (changeRadius == true) {
       if (hDragging == true) {
