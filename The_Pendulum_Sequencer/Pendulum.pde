@@ -83,7 +83,7 @@ class Pendulum {
   }
 
   void go() {
-    
+
     drag();    //for user interaction
     if (changeRadius == true) {
       if (hDragging == true) {
@@ -139,7 +139,7 @@ class Pendulum {
 
   // displays the small circle that indicates the height of the pendulum
   void displayHCircle() {    
-
+    pushMatrix();
     stroke(hue, 240, 240);
     //noStroke();
     strokeWeight(1);
@@ -148,6 +148,7 @@ class Pendulum {
     if (dragging) fill(0);
     // Draw the ball        
     ellipse(width-hOffset, hy, hRadius, hRadius);
+    popMatrix();
   }
 
 
@@ -316,10 +317,10 @@ class Pendulum {
       brightness = 240;
     }
   }
-  
+
   void setPitch(int p) {
-   pitch = p; 
-   //println(pitch);
+    pitch = p; 
+    //println(pitch);
   }
 
   void setGravity (float _g) {    
@@ -327,7 +328,7 @@ class Pendulum {
   }
 
   void setDamping (float _d) {
-    damping = map(_d, 0, 1, 1, 0.99);     
+    damping = map(_d, 0, 1, 1, 0.99);
   }
 
   void isChangingRadius(boolean _r) {

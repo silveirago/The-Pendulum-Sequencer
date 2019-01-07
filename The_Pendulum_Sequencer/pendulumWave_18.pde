@@ -31,12 +31,15 @@ ControlP5 cp5;
 //Pendulum p;
 ArrayList<Pendulum> p;
 ArrayList<Float> pLength;
-int nPendulum = 15; // number of pendulums
+int nPendulum = 24; // number of pendulums
+int nActivePendulums = 4;
 int nOfCycles = 16;
 float hueOffset = 255 / nPendulum;
 float[] hueColors =  new float[nPendulum];
 //int[] numbers = new int[3];
 boolean isDragging  = false;
+int nPendulumOffset;
+boolean isDeleting = false;
 
 // Sound Object
 ArrayList<SoundObject> strings;
@@ -58,6 +61,7 @@ int scaleNamesIndex = 1;
 int midiPort = 0;
 String[] outputs;
 boolean isOn = false;
+
 
 void setup() {
   size(800, 1080, P2D);
@@ -107,6 +111,9 @@ void setup() {
     //p.add(i, new Pendulum(new PVector(width/2, 0), longPendulum, hueColors[i], int(random(8)), 30));// golden ratio
     //longPendulum *= 0.666666; //
   }
+  nPendulumOffset = nPendulum - nActivePendulums;
+  nPendulumOffset = nPendulum - nPendulumOffset;
+  //println(nPendulumOffset);
 
   // strings (triggers)
   strings = new ArrayList<SoundObject>();
@@ -126,8 +133,8 @@ void setup() {
   pNTriggered = new ArrayList<ArrayList<Boolean>>(); // stores the if the note was triggered or not
 
   // creates a 2d ArrayList to compare each pendumlum with each string
-  for (int i=0; i<nPendulum; i++) {
-    for (int j=0; j<nPendulum; j++) {
+  for (int i=0; i < nPendulum; i++) {
+    for (int j=0; j < nPendulum; j++) {
       //myList.get(0).set(1, 17);
       nTriggered.add(new ArrayList<Boolean>());
       pNTriggered.add(new ArrayList<Boolean>());
@@ -144,13 +151,23 @@ void draw() {
 
   background(30);
 
+  // draws intructions
+  textSize(12);
+  fill(0, 0, 150);
+  textAlign(LEFT);
+  text("z: deletes last trigger", 10, height - 10);
+  text("a: adds a pendulum", 10, height - 25);
+  text("d: deletes the last pendulum", 10, height - 40);
+  text("r + click: deletes a pendulum", 10, height - 55);
+  text("s + click in the right circle: resizes the circle", 10, height - 70);
+
   // line where the circles for adjusting the height will be
   stroke(0, 200, 200);
   strokeWeight(1);  
   line(width-p.get(0).gethOffset(), 0, width-p.get(0).gethOffset(), height); 
 
   // do pendulum stuff
-  for (int i=0; i<nPendulum; i++) {
+  for (int i=0; i<nActivePendulums; i++) {
 
     if (isOn == true) {
       p.get(i).update();
@@ -167,13 +184,13 @@ void draw() {
 
 
   // is a circle intersecting with a line?
-  for (int i=0; i<p.size(); i++) {
+  for (int i=0; i<nActivePendulums; i++) {
     for (int j=0; j<strings.size(); j++) {                
       PVector initialPos = strings.get(j).getInitialPos();
       PVector finalPos = strings.get(j).getFinalPos();               
       p.get(i).isOnLine(initialPos, finalPos); // checks if they are intersecting        
       isTriggered = p.get(i).getNoteTriggered();        
-      if (i < p.size() && j < strings.size()) {
+      if (i < nActivePendulums && j < strings.size()) {
         nTriggered.get(i).set(j, isTriggered);
         changeStringBrightness(j);   
         p.get(i).setBrightness(isTriggered); // changes brightness when intersected
@@ -205,11 +222,11 @@ void connectCircles() {
   PVector pos = p.get(0).getPosition();
   beginShape();  
   vertex(pos.x, pos.y);
-  for (int i=0; i < nPendulum; i++) {   
+  for (int i=0; i < nActivePendulums; i++) {   
     pos = p.get(i).getPosition();  
     curveVertex(pos.x, pos.y);
   }
-  pos = p.get(nPendulum-1).getPosition();
+  pos = p.get(nActivePendulums-1).getPosition();
   strokeWeight(1);
   vertex(pos.x, pos.y);
   endShape();
@@ -221,38 +238,49 @@ void mousePressed() {
     useMouse = true;
 
     //checks if you clicked in a circle
-    for (Pendulum pendulum : p) {
-      pendulum.clicked(mouseX, mouseY);
-      pendulum.hClicked(mouseX, mouseY);
-    }
+    for (int i=0; i<nActivePendulums; i++) {
+      p.get(i).clicked(mouseX, mouseY);
+      p.get(i).hClicked(mouseX, mouseY);
 
-    for (int i=0; i<p.size(); i++) {    
       if (p.get(i).getDragging() == true) {
         isDragging = true;
+      }
+
+      if (key == 'r' && keyPressed == true && p.get(i).dragging == true) {
+
+        p.remove(i);
+        nActivePendulums--;
+        isDeleting = false;
+        println("delete");
       }
     }
     //println(isDragging);
     if (isDragging == false) {
-      //adds a "string" that plays a sound when touched by a circle
-      strings.add(new SoundObject());
-      //println(strings.size());
-      strings.get(strings.size()-1).setMousePressed(true);
-      //println(strings.size());
+      if (keyPressed == false) {
+        //adds a "string" that plays a sound when touched by a circle
+        strings.add(new SoundObject());
+        //println(strings.size());
+        strings.get(strings.size()-1).setMousePressed(true);
+        //println(strings.size());
+      }
     }
   }
 }
+
 
 void mouseReleased() {
 
   if (useMouse == true) {
     //stops draggin the cricle when mouse is released
-    for (Pendulum pendulum : p) {
-      pendulum.stopDragging();
-      pendulum.stopHDragging();
+    for (int i=0; i<nActivePendulums; i++) {
+      p.get(i).stopDragging();
+      p.get(i).stopHDragging();
     }
 
     if (isDragging == false) {
-      strings.get(strings.size()-1).setMousePressed(false);
+      if (keyPressed == false) {
+        strings.get(strings.size()-1).setMousePressed(false);
+      }
     }
     isDragging = false;
   }
@@ -269,8 +297,8 @@ void keyPressed() {
   }
 
   if (key == '1' || key == '2' || key == '3' || key == '4' || key == '5') { // resets angle of the pendulums
-    for (int i=0; i<p.size(); i++) {
-      if (p.size()>0) {
+    for (int i=0; i<nActivePendulums; i++) {
+      if (nActivePendulums>0) {
         p.get(i).angle = PI/(8-(keyN+1));
         p.get(i).aVelocity = 0;
       }
@@ -278,22 +306,34 @@ void keyPressed() {
   }
 
   if (key == 's') { // resets angle of the pendulums
-    for (int i=0; i<p.size(); i++) {
-      if (p.size()>0) {
+    for (int i=0; i<nActivePendulums; i++) {
+      if (nActivePendulums>0) {
         p.get(i).isChangingRadius(true);
       }
+    }
+  }
+
+  if (key == 'a') { // adds a pendulum 
+    if (nActivePendulums<24) {
+      p.add(nActivePendulums, new Pendulum(new PVector(width/2, 0), pLength.get(nActivePendulums), hueColors[nActivePendulums], scales[scaleNamesIndex][nActivePendulums], nActivePendulums, 30)); // pendulum wave
+      //nTriggered.add(new ArrayList<Boolean>());
+      //pNTriggered.add(new ArrayList<Boolean>());
+      //nTriggered.get(nActivePendulums).add(nActivePendulums, false);
+      //pNTriggered.get(nActivePendulums).add(nActivePendulums, false);
+      nActivePendulums++;
+    }
+  }
+  if (nActivePendulums>0) {
+    if (key == 'd') { // adds a pendulum
+      p.remove(nActivePendulums-1);
+      //nTriggered.remove(nActivePendulums-1);
+      //pNTriggered.remove(nActivePendulums-1);
+      nActivePendulums--;
     }
   }
 }
 
 void keyReleased() {
-  if (key == 's') { // resets angle of the pendulums
-    for (int i=0; i<p.size(); i++) {
-      if (p.size()>0) {
-        p.get(i).isChangingRadius(false);
-      }
-    }
-  }
 }
 
 
@@ -324,7 +364,7 @@ void changePendulumBrightness(int i, int j) {
 void scales(int n) {
   scaleNamesIndex = n;
 
-  for (int i=0; i<nPendulum; i++) {
+  for (int i=0; i<nActivePendulums; i++) {
     p.get(i).setPitch(scales[scaleNamesIndex][i]);
     p.get(i).displayNote();
   }
@@ -345,8 +385,8 @@ void on_off(boolean theFlag) {
       }
     }
   }
-  //for (int i=0; i<p.size(); i++) {
-  //  if (p.size()>0) {
+  //for (int i=0; i<nActivePendulums; i++) {
+  //  if (nActivePendulums>0) {
   //    p.get(i).angle = PI/6;
   //    p.get(i).aVelocity = 0;
   //  }
